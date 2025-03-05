@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # Database
+  db:
+    image: mysql:5.7
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+    env_file: .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - wp_network
+
+  # WordPress
+  wordpress:
+    image: wordpress:latest
+    depends_on:
+      - db
+    ports:
+      - "${WP_PORT:-8000}:80"
+    restart: always
+    user: "${UID}:${GID}"
+    env_file: .env
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: ${DB_NAME}
+      WORDPRESS_DB_USER: ${DB_USER}
+      WORDPRESS_DB_PASSWORD: ${DB_PASSWORD}
+      WORDPRESS_DEBUG: ${WP_DEBUG:-1}
+    volumes:
+      # Bind mount for themes with proper permissions
+      - ./themes:/var/www/html/wp-content/themes
+      # These volumes ensure WordPress core and plugins are ephemeral
+      - wp_content:/var/www/html/wp-content/plugins
+      - wp_content:/var/www/html/wp-content/uploads
+    networks:
+      - wp_network
+
+  # phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    depends_on:
+      - db
+    ports:
+      - "${PMA_PORT:-8080}:80"
+    env_file: .env
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      PMA_USER: ${DB_USER}
+      PMA_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - wp_network
+
+volumes:
+  db_data:
+  wp_content:
+
+networks:
+  wp_network:
+    driver: bridge
