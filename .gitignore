@@ -1,6 +1,7 @@
 # Environment files
 .env
-.env.*
+# Keep .env.example in the repo
+# .env.*
 
 # WordPress core files (if you're not versioning core)
 wp-admin/
@@ -18,6 +19,9 @@ wp-content/wp-cache-config.php
 wp-content/advanced-cache.php
 wp-content/db.php
 wp-content/object-cache.php
+
+# WordPress themes - ignore the themes directory for development
+themes/
 
 # Core WordPress files
 /index.php
