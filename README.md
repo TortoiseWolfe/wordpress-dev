@@ -7,7 +7,7 @@ This repository contains tools for WordPress theme development, with a focus on 
 1. Clone this repository
 
    ```bash
-   git clone https://github.com/yourusername/wordpress-dev.git
+   git clone https://github.com/TortoiseWolfe/wordpress-dev.git
    cd wordpress-dev
    ```
 
