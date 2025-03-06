@@ -1,5 +1,15 @@
 # WordPress Development Environment
 
+```bash
+# Stop everything, remove images, clean Docker, rebuild, and restart
+docker compose down
+docker rmi wordpress-dev-nextjs
+docker system prune -af --volumes
+docker compose build nextjs
+docker compose up -d
+docker compose logs nextjs
+```
+
 This repository contains tools for WordPress theme development, with a focus on rapid theme generation and customization.
 
 ## Quick Start
