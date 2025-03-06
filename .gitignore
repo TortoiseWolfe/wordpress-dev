@@ -3,6 +3,10 @@
 # Keep .env.example in the repo
 # .env.*
 
+# WordPress themes - ignore the themes directory for development
+themes/
+nextjs-frontend/
+
 # WordPress core files (if you're not versioning core)
 wp-admin/
 wp-includes/
@@ -20,8 +24,6 @@ wp-content/advanced-cache.php
 wp-content/db.php
 wp-content/object-cache.php
 
-# WordPress themes - ignore the themes directory for development
-themes/
 
 # Core WordPress files
 /index.php
