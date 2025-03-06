@@ -10,6 +10,12 @@ docker compose up -d
 docker compose logs nextjs
 ```
 
+```bash
+docker compose build nextjs
+docker compose up -d
+docker compose logs nextjs
+```
+
 This repository contains tools for WordPress theme development, with a focus on rapid theme generation and customization.
 
 ## Quick Start
