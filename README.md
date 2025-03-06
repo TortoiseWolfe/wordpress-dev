@@ -5,16 +5,58 @@
 docker compose down
 docker rmi wordpress-dev-nextjs
 docker system prune -af --volumes
-docker compose build nextjs
-docker compose up -d
-docker compose logs nextjs
 ```
 
 ```bash
-docker compose build nextjs
-docker compose up -d
+docker compose up -d --build --no-cache
+```
+
+```bash
+
+docker compose up -d --build --force-recreate
+```
+
+```bash
+
 docker compose logs nextjs
 ```
+
+## WordPress Development Environment Services
+
+## Services & URLs
+
+- **WordPress Site**  
+  URL: [http://localhost:80](http://localhost:80)  
+  *Main site running the latest WordPress version.*
+
+- **Next.js Frontend**  
+  URL: [http://localhost:3000](http://localhost:3000)  
+  *React-based frontend interacting with WordPress via the REST API.*
+
+- **phpMyAdmin**  
+  URL: [http://localhost:8080](http://localhost:8080)  
+  *Web interface for database management.*
+
+- **MySQL Database**  
+  Port: `3306`  
+  *MySQL 5.7 database storing WordPress data (not browser accessible).*
+
+## Container Names
+
+- `wordpress-dev-wordpress-1` – WordPress core application
+- `wordpress-dev-nextjs-1` – Next.js frontend
+- `wordpress-dev-phpmyadmin-1` – phpMyAdmin tool
+- `wordpress-dev-db-1` – MySQL database server
+
+## Docker Commands
+
+```bash
+# View logs for the WordPress container
+docker compose logs wordpress
+
+# Access shell in the WordPress container
+docker compose exec wordpress bash
+
 
 This repository contains tools for WordPress theme development, with a focus on rapid theme generation and customization.
 
