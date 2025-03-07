@@ -1,40 +1,34 @@
 # WordPress Development Environment
 
-This is a development environment for WordPress with a Next.js frontend that communicates with WordPress via its REST API. The setup supports both local development and production deployment.
+A complete development environment for WordPress with a Next.js frontend that communicates with WordPress via its REST API. Supports both local development and production deployment.
 
 ## Quick Start
 
-1. Run the setup script to create the environment file and set up permissions:
+1. Setup environment:
 
    ```bash
    chmod +x setup-script.sh
    ./setup-script.sh
    ```
 
-   This script will:
-   - Create a `.env` file from `.env.example` if it doesn't exist
-   - Set proper permissions for the themes directory
-   - Configure Next.js environment variables (if Next.js frontend exists)
-   - Start the Docker containers
+   This creates the `.env` file, sets permissions, configures variables, and starts Docker containers.
 
-   **Note on Permissions**: This setup uses the host user's UID/GID in the WordPress container to avoid permission issues. The themes directory is also given 777 permissions to ensure both the container and host user can access it.
-
-2. Once the setup script completes, access the services at:
-   - WordPress: [http://localhost:80](http://localhost:80)
-   - phpMyAdmin: [http://localhost:8080](http://localhost:8080)
-   - Next.js (if set up): [http://localhost:3000](http://localhost:3000)
+2. Access services:
+   - WordPress: [http://wp.localhost:8000](http://wp.localhost:8000)
+   - Next.js: [http://next.localhost:8000](http://next.localhost:8000) (if created)
+   - Storybook: [http://storybook.localhost:8000](http://storybook.localhost:8000) (if created)
+   - phpMyAdmin: [http://pma.localhost:8000](http://pma.localhost:8000)
+   - Traefik Dashboard: [http://traefik.localhost:8081](http://traefik.localhost:8081)
 
 3. Generate a WordPress theme (optional):
 
    ```bash
-   chmod +x create-steampunk-theme.sh
    ./create-steampunk-theme.sh
    ```
 
-4. Create a Next.js frontend with Storybook and Testing (optional):
+4. Create a Next.js frontend (optional):
 
    ```bash
-   chmod +x create-nextjs-frontend.sh
    ./create-nextjs-frontend.sh
    ```
 
@@ -58,11 +52,17 @@ The environment variables are organized into categories:
 2. **WordPress Configuration**
 
    ```bash
-   WP_PORT=80  # Port for WordPress site
+   WP_PORT=80  # Port for WordPress site (when not using Traefik)
    WP_DEBUG=1  # Enable WordPress debug mode
    ```
 
-3. **Node.js/Next.js Configuration**
+3. **Traefik Configuration**
+
+   ```bash
+   TRAEFIK_PORT=8000  # Port for Traefik HTTP entrypoint
+   ```
+
+4. **Node.js/Next.js Configuration**
 
    ```bash
    NODE_ENV=development  # or production
@@ -70,7 +70,7 @@ The environment variables are organized into categories:
    PORT=3000  # Next.js port
    ```
 
-4. **Deployment Environment**
+5. **Deployment Environment**
 
    ```bash
    # Development mode
@@ -85,7 +85,7 @@ The environment variables are organized into categories:
    DOMAIN=your-production-domain.com
    ```
 
-5. **Theme Configuration**
+6. **Theme Configuration**
 
    ```bash
    THEME_NAME="Your Theme Name"
@@ -130,108 +130,45 @@ For production deployment:
 
 ## Testing, Debugging, and Maintenance
 
-This repository includes tools to verify your environment is working correctly, to help diagnose issues, and to clean up when needed.
-
 ### Test Suite
 
-There are multiple test scripts available to verify your environment:
-
-#### Complete Test (Recommended)
-
-For a comprehensive test of the entire workflow:
+Test scripts to verify your environment:
 
 ```bash
-# Standard test using mock setup (faster)
-./test-complete.sh
+# Complete workflow test (recommended)
+./test-complete.sh                     # Uses mock setup (faster)
+./test-complete.sh --force-recreate    # Forces recreation of frontend
+./test-complete.sh --with-real-creation # Creates actual Next.js frontend
 
-# Force recreation of any existing frontend
-./test-complete.sh --force-recreate
-
-# Create a real Next.js frontend with Storybook and run a full test
-./test-complete.sh --with-real-creation
+# Individual component tests
+./test-environment.sh  # Test environment setup
+./test-scripts.sh      # Test creation scripts
 ```
 
-This test follows the logical workflow a user would follow:
+These tests verify:
+- Docker and Docker Compose installation
+- Container health and connectivity
+- Directory permissions
+- Service availability
+- Storybook and testing configuration
 
-1. Sets up the environment
-2. Creates a Next.js frontend with Storybook and testing support
-3. Starts all Docker containers
-4. Verifies all services are running and accessible
-5. Cleans up after completion
+### Debugging
 
-The test includes retry logic for service availability and provides detailed output about what's being tested. When running with `--with-real-creation`, it will create an actual Next.js frontend with Storybook rather than using mock files, providing a more thorough but slower test.
-
-#### Individual Component Tests
-
-For testing specific parts of the environment:
+For troubleshooting:
 
 ```bash
-./test-environment.sh  # Test just the environment setup
-./test-scripts.sh      # Test just the creation scripts
+./inspect-containers.sh  # Detailed Docker environment info
 ```
 
-The individual test scripts check:
+### Cleanup
 
-- Docker and Docker Compose are properly installed
-- All containers are running (WordPress, MySQL, Next.js, and Storybook)
-- The themes directory has the correct permissions
-- Services are reachable on their respective ports
-- Storybook is correctly configured and accessible
-- Testing setup is properly configured
-
-### Container Inspector
-
-For more detailed debugging information, use the container inspector:
+Reset your environment:
 
 ```bash
-./inspect-containers.sh
+./cleanup.sh  # Interactive cleanup with confirmation prompts
 ```
 
-This provides comprehensive information about your Docker environment, including:
-
-- Container configurations
-- Network settings
-- Volume mounts
-- Resource usage
-- Service-specific information (WordPress version, PHP version, database size, etc.)
-- Host system information
-
-### Script Tests
-
-To verify that the creation scripts (for themes and Next.js frontend) work correctly, run:
-
-```bash
-./test-scripts.sh
-```
-
-This script will:
-
-- Check if all the required scripts exist and are executable
-- Test the Next.js frontend creation script
-- Verify that Storybook is properly set up
-- Check that component tests are created correctly
-- Verify that the theme creation process works
-- Validate the created files and directories
-
-### Cleanup Script
-
-When you need to clean up your environment (to reset or to free up resources), use the cleanup script:
-
-```bash
-./cleanup.sh
-```
-
-This interactive script allows you to:
-
-- Stop all Docker containers
-- Remove Docker volumes (database, uploads, etc.)
-- Remove Docker images
-- Clean the themes directory
-- Remove the Next.js frontend
-- Delete the .env file
-- Run Docker system prune to clean up unused resources
-
-Each step requires confirmation, so you can choose exactly what to clean up.
+This removes containers, volumes, images, themes, Next.js frontend, and configuration files as needed.
 
 ## Useful Docker Commands
 
@@ -261,8 +198,12 @@ docker compose exec wordpress bash
 
 ## Services & URLs
 
+The development environment offers two ways to access all services: direct port access and hostname-based routing through Traefik.
+
+### Direct Access:
+
 - **WordPress Site**  
-  URL: [http://localhost:80](http://localhost:80)  
+  URL: [http://localhost:80](http://localhost:80) (if WP_PORT=80 in .env)  
   *Main site running the latest WordPress version.*
 
 - **Next.js Frontend**  
@@ -281,19 +222,152 @@ docker compose exec wordpress bash
   Port: `3306`  
   *MySQL 5.7 database storing WordPress data (not browser accessible).*
 
+### Traefik Routing:
+
+- **Traefik Dashboard**  
+  URL: [http://traefik.localhost:8081](http://traefik.localhost:8081)  
+  *View and manage Traefik routes and services.*
+
+- **WordPress Site**  
+  URL: [http://wp.localhost:8000](http://wp.localhost:8000) (or custom port in TRAEFIK_PORT)  
+  *Main WordPress site.*
+
+- **Next.js Frontend**  
+  URL: [http://next.localhost:8000](http://next.localhost:8000) (or custom port in TRAEFIK_PORT)  
+  *Next.js frontend application.*
+
+- **Storybook**  
+  URL: [http://storybook.localhost:8000](http://storybook.localhost:8000) (or custom port in TRAEFIK_PORT)  
+  *Storybook component library.*
+
+- **phpMyAdmin**  
+  URL: [http://pma.localhost:8000](http://pma.localhost:8000) (or custom port in TRAEFIK_PORT)  
+  *Database management interface.*
+
+### Setting Up Local Domain Resolution
+
+To use the Traefik hostname-based routing, you need to ensure your computer can resolve the `.localhost` domains. There are multiple ways to set this up:
+
+1. **Option 1: Use Chrome or Edge browser**  
+   These browsers automatically resolve `.localhost` domains to 127.0.0.1.
+
+2. **Option 2: Add entries to /etc/hosts file**  
+   ```
+   127.0.0.1 wp.localhost
+   127.0.0.1 next.localhost
+   127.0.0.1 storybook.localhost
+   127.0.0.1 pma.localhost
+   127.0.0.1 traefik.localhost
+   ```
+
+3. **Option 3: Use dnsmasq (advanced users)**  
+   Configure dnsmasq to resolve all `.localhost` domains to 127.0.0.1.
+
 ## Container Names
 
-- `wordpress-dev-wordpress-1` – WordPress core application
-- `wordpress-dev-nextjs-1` – Next.js frontend
-- `wordpress-dev-storybook-1` – Storybook component explorer
-- `wordpress-dev-phpmyadmin-1` – phpMyAdmin tool
-- `wordpress-dev-db-1` – MySQL database server
+- `wordpress-dev-traefik` – Traefik reverse proxy and dashboard
+- `wordpress-dev-wordpress` – WordPress core application
+- `wordpress-dev-nextjs` – Next.js frontend
+- `wordpress-dev-storybook` – Storybook component explorer
+- `wordpress-dev-phpmyadmin` – phpMyAdmin tool
+- `wordpress-dev-db` – MySQL database server
+
+## Traefik Integration
+
+This environment uses Traefik as a reverse proxy to provide:
+
+1. **Hostname-based routing** - Access each service using a readable domain name
+2. **Simplified port management** - Single entry point for multiple services
+3. **Dashboard for monitoring** - Visual interface showing routes and services
+4. **Automatic service discovery** - Detects and routes to Docker containers
+
+### How Traefik Works
+
+Traefik automatically:
+- Discovers containers and their labels
+- Creates routes based on those labels
+- Forwards requests to the appropriate containers
+
+### Configuration Structure
+
+Traefik is configured through:
+1. **Command-line arguments** in docker-compose.yaml:
+   ```yaml
+   command:
+     - "--api.insecure=true"  # Enables the dashboard
+     - "--providers.docker=true"  # Uses Docker as configuration provider
+     - "--entrypoints.web.address=:80"  # Defines HTTP entrypoint
+     - "--entrypoints.dashboard.address=:8081"  # Dashboard entrypoint
+     - "--providers.docker.network=wp_network"  # Container network to use
+     - "--providers.docker.defaultRule=Host(`{{ normalize .Name }}.localhost`)"
+   ```
+
+2. **Container labels** that define routing rules:
+   ```yaml
+   labels:
+     - "traefik.enable=true"  # Enable Traefik for this container
+     - "traefik.http.routers.wordpress.rule=Host(`wp.localhost`)"  # Domain
+     - "traefik.http.routers.wordpress.entrypoints=web"  # Use HTTP entrypoint
+     - "traefik.http.services.wordpress.loadbalancer.server.port=80"  # Port
+   ```
+
+### Hybrid Access Mode
+
+The current configuration maintains compatibility with both:
+- Direct ports (backward compatibility)
+- Traefik routing (new hostname-based approach)
+
+You can choose whichever method best suits your workflow.
+
+### Traefik Configuration Options
+
+In your `.env` file, you can customize Traefik behavior:
+
+```bash
+TRAEFIK_PORT=8000  # The port where Traefik HTTP entrypoint is accessible
+```
+
+### Troubleshooting Traefik
+
+If you encounter issues with Traefik:
+
+1. **Check container connectivity:**
+   ```bash
+   docker network inspect wordpress-dev_wp_network
+   ```
+   Verify all containers are on the same network.
+
+2. **Check Traefik logs:**
+   ```bash
+   docker logs wordpress-dev-traefik
+   ```
+   Look for error messages about container discovery or routing.
+
+3. **Test domain resolution:**
+   ```bash
+   ping wp.localhost
+   ```
+   Should resolve to 127.0.0.1 if your hostname resolution is configured correctly.
+
+4. **Test direct access first:**
+   If Traefik routing isn't working, verify you can access services directly
+   through their assigned ports.
+
+5. **Access the Traefik dashboard:**
+   Visit http://localhost:8081 to check the dashboard and verify routes are properly
+   configured.
+
+6. **Restart Traefik:**
+   ```bash
+   docker compose restart traefik
+   ```
+   Sometimes Traefik needs a restart to recognize all containers.
 
 This repository contains tools for WordPress theme development, with a focus on rapid theme generation and customization.
 
 ## Repository Structure
 
-- `docker-compose.yaml` - Docker setup for WordPress, MySQL, phpMyAdmin, Next.js, and Storybook
+- `docker-compose.yaml` - Docker setup for Traefik, WordPress, MySQL, phpMyAdmin, Next.js, and Storybook
 - `create-steampunk-theme.sh` - Script to generate custom WordPress themes
 - `create-nextjs-frontend.sh` - Script to create a Next.js frontend with Storybook and testing
 - `test-complete.sh` - Complete workflow test script (follows the logical user workflow)

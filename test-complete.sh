@@ -24,6 +24,19 @@ echo "This script will test the entire workflow from setup to running containers
 TESTS_PASSED=0
 TESTS_TOTAL=0
 
+# Load environment variables from .env file
+if [ -f ".env" ]; then
+  # Load environment variables using grep to avoid readonly variable issues
+  THEMES_PATH=$(grep -E "^THEMES_PATH=" .env | cut -d= -f2)
+  THEMES_PATH=${THEMES_PATH:-./themes}
+  WP_PORT=$(grep -E "^WP_PORT=" .env | cut -d= -f2)
+  WP_PORT=${WP_PORT:-80}
+  PMA_PORT=$(grep -E "^PMA_PORT=" .env | cut -d= -f2)
+  PMA_PORT=${PMA_PORT:-8080}
+  TRAEFIK_PORT=$(grep -E "^TRAEFIK_PORT=" .env | cut -d= -f2)
+  TRAEFIK_PORT=${TRAEFIK_PORT:-8000}
+fi
+
 # Function to run a test
 run_test() {
   local test_name=$1
@@ -408,6 +421,7 @@ run_test "Docker compose file exists" "[ -f 'docker-compose.yaml' ] && echo 'doc
 run_test "Docker compose validate" "docker-compose config >/dev/null && echo 'docker-compose.yaml is valid'" "docker-compose.yaml is valid"
 
 # 3.2 Verify docker-compose has all required services
+run_test "Traefik service configured" "grep -q 'traefik:' docker-compose.yaml && echo 'Traefik service found'" "Traefik service found"
 run_test "WordPress service configured" "grep -q 'wordpress:' docker-compose.yaml && echo 'WordPress service found'" "WordPress service found"
 run_test "Next.js service configured" "grep -q 'nextjs:' docker-compose.yaml && echo 'Next.js service found'" "Next.js service found"
 run_test "Storybook service configured" "grep -q 'storybook:' docker-compose.yaml && echo 'Storybook service found'" "Storybook service found"
@@ -415,41 +429,68 @@ run_test "Storybook service configured" "grep -q 'storybook:' docker-compose.yam
 # 3.3 Check Dockerfile.storybook exists and is valid
 run_test "Storybook Dockerfile exists" "[ -f 'Dockerfile.storybook' ] && echo 'Dockerfile.storybook exists'" "Dockerfile.storybook exists"
 
-# 3.4 Start containers (DB and WordPress only for quick testing)
-echo -e "\n${BLUE}Starting database and WordPress containers...${NC}"
-docker-compose up -d db wordpress
+# 3.4 Start containers (Traefik, DB and WordPress for quick testing)
+echo -e "\n${BLUE}Starting Traefik, database and WordPress containers...${NC}"
+docker-compose up -d traefik db wordpress
 
 # 3.5 Check if containers started successfully
-sleep 10  # Give containers more time to start for stability
+sleep 20  # Give containers more time to start for stability
+run_test "Traefik container running" "docker-compose ps traefik | grep -q 'Up' && echo 'Traefik container is running'" "Traefik container is running"
 run_test "Database container running" "docker-compose ps db | grep -q 'Up' && echo 'Database container is running'" "Database container is running"
 run_test "WordPress container running" "docker-compose ps wordpress | grep -q 'Up' && echo 'WordPress container is running'" "WordPress container is running"
 
 # PHASE 4: Verify everything is working
 echo -e "\n${BLUE}PHASE 4: Verifying functionality${NC}"
 
-# 4.1 Check WordPress is accessible (with retry logic)
-max_retries=3
+# 4.1 Test Traefik dashboard is accessible
+max_retries=5
 retry_count=0
-wp_accessible=false
+traefik_dashboard_accessible=false
 
-while [ $retry_count -lt $max_retries ] && [ "$wp_accessible" = false ]; do
+while [ $retry_count -lt $max_retries ] && [ "$traefik_dashboard_accessible" = false ]; do
   sleep 5  # Wait between retries
-  wp_status=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 http://localhost:80 2>/dev/null)
+  traefik_status=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 http://localhost:8081 2>/dev/null)
   
-  if [[ "$wp_status" =~ ^(200|302)$ ]]; then
-    wp_accessible=true
+  if [[ "$traefik_status" =~ ^(200|302|401)$ ]]; then
+    traefik_dashboard_accessible=true
   else
     retry_count=$((retry_count + 1))
-    echo -e "${YELLOW}WordPress not reachable yet. Retry $retry_count of $max_retries...${NC}"
+    echo -e "${YELLOW}Traefik dashboard not reachable yet. Retry $retry_count of $max_retries...${NC}"
   fi
 done
 
-if [ "$wp_accessible" = true ]; then
-  echo -e "${GREEN}✓ WordPress site is reachable (HTTP $wp_status)${NC}"
+if [ "$traefik_dashboard_accessible" = true ]; then
+  echo -e "${GREEN}✓ Traefik dashboard is reachable (HTTP $traefik_status)${NC}"
   TESTS_TOTAL=$((TESTS_TOTAL + 1))
   TESTS_PASSED=$((TESTS_PASSED + 1))
 else
-  echo -e "${RED}✗ Failed: WordPress site is not reachable after $max_retries attempts${NC}"
+  echo -e "${RED}✗ Failed: Traefik dashboard is not reachable after $max_retries attempts${NC}"
+  TESTS_TOTAL=$((TESTS_TOTAL + 1))
+fi
+
+# 4.2 Check WordPress is accessible via Traefik (with retry logic)
+max_retries=5
+retry_count=0
+wp_accessible_traefik=false
+
+while [ $retry_count -lt $max_retries ] && [ "$wp_accessible_traefik" = false ]; do
+  sleep 5  # Wait between retries
+  wp_traefik_status=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 -H "Host: wp.localhost" http://localhost:${TRAEFIK_PORT} 2>/dev/null)
+  
+  if [[ "$wp_traefik_status" =~ ^(200|302)$ ]]; then
+    wp_accessible_traefik=true
+  else
+    retry_count=$((retry_count + 1))
+    echo -e "${YELLOW}WordPress not reachable via Traefik yet. Retry $retry_count of $max_retries...${NC}"
+  fi
+done
+
+if [ "$wp_accessible_traefik" = true ]; then
+  echo -e "${GREEN}✓ WordPress site is reachable via Traefik (HTTP $wp_traefik_status)${NC}"
+  TESTS_TOTAL=$((TESTS_TOTAL + 1))
+  TESTS_PASSED=$((TESTS_PASSED + 1))
+else
+  echo -e "${RED}✗ Failed: WordPress site is not reachable via Traefik after $max_retries attempts${NC}"
   TESTS_TOTAL=$((TESTS_TOTAL + 1))
 fi
 
@@ -459,7 +500,7 @@ if [ -f "nextjs-frontend/package-lock.json" ]; then
   docker-compose up -d nextjs storybook
 
   # 4.3 Verify Next.js and Storybook are running (with retry logic)
-  sleep 15  # Give containers more time to start fully
+  sleep 30  # Give containers more time to start fully
 
   # Check Next.js container
   nextjs_running=false
@@ -508,7 +549,7 @@ if [ -f "nextjs-frontend/package-lock.json" ]; then
   fi
   
   # 4.4 Check Next.js and Storybook sites are reachable (with retry logic)
-  # Check Next.js site
+  # Check Next.js site (direct)
   nextjs_accessible=false
   retry_count=0
   
@@ -525,15 +566,40 @@ if [ -f "nextjs-frontend/package-lock.json" ]; then
   done
   
   if [ "$nextjs_accessible" = true ]; then
-    echo -e "${GREEN}✓ Next.js site is reachable (HTTP $nextjs_status)${NC}"
+    echo -e "${GREEN}✓ Next.js site is directly reachable (HTTP $nextjs_status)${NC}"
     TESTS_TOTAL=$((TESTS_TOTAL + 1))
     TESTS_PASSED=$((TESTS_PASSED + 1))
   else
-    echo -e "${RED}✗ Failed: Next.js site is not reachable after $max_retries attempts${NC}"
+    echo -e "${RED}✗ Failed: Next.js site is not directly reachable after $max_retries attempts${NC}"
     TESTS_TOTAL=$((TESTS_TOTAL + 1))
   fi
   
-  # Check Storybook site
+  # Check Next.js via Traefik
+  nextjs_traefik_accessible=false
+  retry_count=0
+  
+  while [ $retry_count -lt $max_retries ] && [ "$nextjs_traefik_accessible" = false ]; do
+    nextjs_traefik_status=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 -H "Host: next.localhost" http://localhost:${TRAEFIK_PORT} 2>/dev/null)
+    
+    if [[ "$nextjs_traefik_status" =~ ^(200|302)$ ]]; then
+      nextjs_traefik_accessible=true
+    else
+      retry_count=$((retry_count + 1))
+      echo -e "${YELLOW}Next.js site not reachable via Traefik yet. Retry $retry_count of $max_retries...${NC}"
+      sleep 5
+    fi
+  done
+  
+  if [ "$nextjs_traefik_accessible" = true ]; then
+    echo -e "${GREEN}✓ Next.js site is reachable via Traefik (HTTP $nextjs_traefik_status)${NC}"
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+  else
+    echo -e "${RED}✗ Failed: Next.js site is not reachable via Traefik after $max_retries attempts${NC}"
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+  fi
+  
+  # Check Storybook site (direct)
   storybook_accessible=false
   retry_count=0
   
@@ -550,11 +616,36 @@ if [ -f "nextjs-frontend/package-lock.json" ]; then
   done
   
   if [ "$storybook_accessible" = true ]; then
-    echo -e "${GREEN}✓ Storybook site is reachable (HTTP $storybook_status)${NC}"
+    echo -e "${GREEN}✓ Storybook site is directly reachable (HTTP $storybook_status)${NC}"
     TESTS_TOTAL=$((TESTS_TOTAL + 1))
     TESTS_PASSED=$((TESTS_PASSED + 1))
   else
-    echo -e "${RED}✗ Failed: Storybook site is not reachable after $max_retries attempts${NC}"
+    echo -e "${RED}✗ Failed: Storybook site is not directly reachable after $max_retries attempts${NC}"
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+  fi
+  
+  # Check Storybook via Traefik
+  storybook_traefik_accessible=false
+  retry_count=0
+  
+  while [ $retry_count -lt $max_retries ] && [ "$storybook_traefik_accessible" = false ]; do
+    storybook_traefik_status=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 -H "Host: storybook.localhost" http://localhost:${TRAEFIK_PORT} 2>/dev/null)
+    
+    if [[ "$storybook_traefik_status" =~ ^(200|302)$ ]]; then
+      storybook_traefik_accessible=true
+    else
+      retry_count=$((retry_count + 1))
+      echo -e "${YELLOW}Storybook site not reachable via Traefik yet. Retry $retry_count of $max_retries...${NC}"
+      sleep 5
+    fi
+  done
+  
+  if [ "$storybook_traefik_accessible" = true ]; then
+    echo -e "${GREEN}✓ Storybook site is reachable via Traefik (HTTP $storybook_traefik_status)${NC}"
+    TESTS_TOTAL=$((TESTS_TOTAL + 1))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+  else
+    echo -e "${RED}✗ Failed: Storybook site is not reachable via Traefik after $max_retries attempts${NC}"
     TESTS_TOTAL=$((TESTS_TOTAL + 1))
   fi
 else
@@ -563,8 +654,8 @@ else
   echo -e "${YELLOW}This can happen if you're using a mock directory for testing.${NC}"
   echo -e "${YELLOW}Use the --with-real-creation flag for full container testing.${NC}"
   
-  # Add these tests to the total but mark them as skipped
-  TESTS_TOTAL=$((TESTS_TOTAL + 4))
+  # Add these tests to the total but mark them as skipped (4 direct tests + 2 Traefik routing tests)
+  TESTS_TOTAL=$((TESTS_TOTAL + 6))
   echo -e "\n${YELLOW}Next.js and Storybook container tests skipped.${NC}"
 fi
 

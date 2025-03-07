@@ -44,7 +44,33 @@ fi
 
 # Check if the nextjs-frontend directory already exists, unless SKIP_EXISTS_CHECK is set
 if [ -d "./nextjs-frontend" ] && [ "${SKIP_EXISTS_CHECK:-0}" != "1" ]; then
-  error_exit "Directory 'nextjs-frontend' already exists. Please remove or rename it before running this script."
+  echo "Directory 'nextjs-frontend' already exists."
+  read -p "Do you want to remove it and create a new one? (y/n): " answer
+  if [[ "$answer" =~ ^[Yy]$ ]]; then
+    echo "Removing existing nextjs-frontend directory..."
+    # First try more targeted removal of node_modules
+    chmod -R 777 ./nextjs-frontend/node_modules 2>/dev/null || true
+    rm -rf ./nextjs-frontend/node_modules
+    # Then remove the main directory
+    chmod -R 777 ./nextjs-frontend 2>/dev/null || true
+    rm -rf ./nextjs-frontend
+    # Wait a moment for filesystem to catch up
+    sleep 1
+    # Double-check removal
+    if [ -d "./nextjs-frontend" ]; then
+      echo "Initial removal failed, trying with stronger approach..."
+      # Use find to target every file and directory
+      find ./nextjs-frontend -type d -exec chmod 777 {} \; 2>/dev/null || true
+      find ./nextjs-frontend -type f -exec chmod 666 {} \; 2>/dev/null || true
+      # Try removing again
+      rm -rf ./nextjs-frontend
+      if [ -d "./nextjs-frontend" ]; then
+        error_exit "Failed to remove nextjs-frontend directory. Please remove it manually and try again."
+      fi
+    fi
+  else
+    error_exit "Exiting script. Please remove or rename the directory before running this script again."
+  fi
 fi
 
 echo "Creating a new Next.js project in the 'nextjs-frontend' folder..."
@@ -204,25 +230,46 @@ EOF
   echo "Root layout file 'src/app/layout.tsx' created."
 fi
 
-# Install dependencies using npm (to avoid Yarn workspace issues).
-echo "Installing dependencies using npm..."
-npm install || error_exit "npm install failed."
+# Install dependencies using npm (to avoid Yarn workspace issues)
+# Skip installation if SKIP_NPM_INSTALL is set (useful for testing)
+if [ "${SKIP_NPM_INSTALL:-0}" != "1" ]; then
+  echo "Installing dependencies using npm..."
+  npm install || error_exit "npm install failed."
+else
+  echo "Skipping npm install (SKIP_NPM_INSTALL is set)..."
+fi
+
+# Create a .npmrc file to avoid permission issues when building in Docker
+cat > .npmrc <<'EOF'
+unsafe-perm=true
+EOF
+echo ".npmrc file created to avoid permission issues in Docker."
 
 # Install testing libraries for TDD
-echo "Installing testing libraries for Test-Driven Development..."
-npm install --save-dev jest jest-environment-jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event || error_exit "Failed to install testing libraries."
+if [ "${SKIP_NPM_INSTALL:-0}" != "1" ]; then
+  echo "Installing testing libraries for Test-Driven Development..."
+  npm install --save-dev jest jest-environment-jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event || error_exit "Failed to install testing libraries."
+else
+  echo "Skipping installation of testing libraries (SKIP_NPM_INSTALL is set)..."
+fi
 
 # Set up Storybook
 echo "Setting up Storybook for the Next.js project..."
 
 # Install Storybook using the automatic setup
-echo "Installing Storybook..."
-# Use simpler command to avoid compatibility issues
-npx storybook@latest init --yes || error_exit "Failed to install Storybook."
+if [ "${SKIP_NPM_INSTALL:-0}" != "1" ]; then
+  echo "Installing Storybook..."
+  # Use simpler command to avoid compatibility issues
+  npx storybook@latest init --yes || error_exit "Failed to install Storybook."
 
-# Add additional dependencies for Next.js App Router support
-echo "Installing additional dependencies for Next.js App Router support..."
-npm install --save-dev @storybook/nextjs || error_exit "Failed to install @storybook/nextjs addon."
+  # Add additional dependencies for Next.js App Router support
+  echo "Installing additional dependencies for Next.js App Router support..."
+  npm install --save-dev @storybook/nextjs || error_exit "Failed to install @storybook/nextjs addon."
+else
+  echo "Skipping Storybook installation (SKIP_NPM_INSTALL is set)..."
+  # Create Storybook config directories for testing
+  mkdir -p .storybook
+fi
 
 # Update Storybook configuration for Next.js with App Router
 echo "Configuring Storybook for Next.js with App Router..."

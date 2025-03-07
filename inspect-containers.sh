@@ -101,6 +101,17 @@ for container in $CONTAINERS; do
   
   # Container-specific checks
   case $container in
+    traefik)
+      echo -e "\n${BLUE}Traefik version:${NC}"
+      docker-compose exec -T traefik traefik version 2>/dev/null || echo -e "${YELLOW}Could not determine Traefik version${NC}"
+      
+      echo -e "\n${BLUE}Traefik routes:${NC}"
+      docker-compose exec -T traefik traefik healthcheck --ping 2>/dev/null || echo -e "${YELLOW}Could not check Traefik health${NC}"
+      
+      echo -e "\n${BLUE}Traefik ports:${NC}"
+      docker port $(docker-compose ps -q traefik) || echo -e "${YELLOW}Could not retrieve Traefik ports${NC}"
+      ;;
+    
     wordpress)
       echo -e "\n${BLUE}WordPress version:${NC}"
       docker-compose exec -T wordpress wp --allow-root core version 2>/dev/null || echo -e "${YELLOW}WP-CLI not available${NC}"
