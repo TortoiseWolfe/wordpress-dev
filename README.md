@@ -5,11 +5,12 @@ This is a development environment for WordPress with a Next.js frontend that com
 ## Quick Start
 
 1. Run the setup script to create the environment file and set up permissions:
+
    ```bash
    chmod +x setup-script.sh
    ./setup-script.sh
    ```
-   
+
    This script will:
    - Create a `.env` file from `.env.example` if it doesn't exist
    - Set proper permissions for the themes directory
@@ -24,12 +25,14 @@ This is a development environment for WordPress with a Next.js frontend that com
    - Next.js (if set up): [http://localhost:3000](http://localhost:3000)
 
 3. Generate a WordPress theme (optional):
+
    ```bash
    chmod +x create-steampunk-theme.sh
    ./create-steampunk-theme.sh
    ```
 
 4. Create a Next.js frontend (optional):
+
    ```bash
    chmod +x create-nextjs-frontend.sh
    ./create-nextjs-frontend.sh
@@ -44,6 +47,7 @@ This project uses a consolidated approach to environment variables, with a singl
 The environment variables are organized into categories:
 
 1. **Database Configuration**
+
    ```bash
    DB_NAME=wordpress
    DB_USER=wordpress
@@ -52,12 +56,14 @@ The environment variables are organized into categories:
    ```
 
 2. **WordPress Configuration**
+
    ```bash
    WP_PORT=80  # Port for WordPress site
    WP_DEBUG=1  # Enable WordPress debug mode
    ```
 
 3. **Node.js/Next.js Configuration**
+
    ```bash
    NODE_ENV=development  # or production
    HOSTNAME=0.0.0.0  # Makes NextJS accessible externally
@@ -65,6 +71,7 @@ The environment variables are organized into categories:
    ```
 
 4. **Deployment Environment**
+
    ```bash
    # Development mode
    ENVIRONMENT=development
@@ -79,6 +86,7 @@ The environment variables are organized into categories:
    ```
 
 5. **Theme Configuration**
+
    ```bash
    THEME_NAME="Your Theme Name"
    THEME_DESCRIPTION="Theme description"
@@ -97,11 +105,13 @@ The project's scripts automatically use these environment variables:
 ### Network Configuration
 
 The Next.js container is configured to:
+
 - Listen on all network interfaces (0.0.0.0)
 - Connect to WordPress via internal Docker network
 - Use environment variables for configuration
 
 Important environment variables:
+
 - `HOSTNAME=0.0.0.0` - Makes the server accessible from outside the container
 - `PORT=3000` - Sets the port the server listens on
 - `NEXT_PUBLIC_WORDPRESS_API_URL` - WordPress REST API endpoint
@@ -112,6 +122,7 @@ For production deployment:
 
 1. Ensure you have proper environment variables set in your `.env` file
 2. Build and deploy:
+
    ```bash
    # Build with production configuration
    docker compose -f docker-compose.yaml up -d --build
@@ -130,6 +141,7 @@ Run the test suite to verify your environment is set up correctly:
 ```
 
 This script will check:
+
 - Docker and Docker Compose are properly installed
 - All containers are running
 - The themes directory has the correct permissions
@@ -146,6 +158,7 @@ For more detailed debugging information, use the container inspector:
 ```
 
 This provides comprehensive information about your Docker environment, including:
+
 - Container configurations
 - Network settings
 - Volume mounts
@@ -162,6 +175,7 @@ To verify that the creation scripts (for themes and Next.js frontend) work corre
 ```
 
 This script will:
+
 - Check if all the required scripts exist and are executable
 - Test the Next.js frontend creation script
 - Verify that the theme creation process works
@@ -176,6 +190,7 @@ When you need to clean up your environment (to reset or to free up resources), u
 ```
 
 This interactive script allows you to:
+
 - Stop all Docker containers
 - Remove Docker volumes (database, uploads, etc.)
 - Remove Docker images
@@ -186,7 +201,7 @@ This interactive script allows you to:
 
 Each step requires confirmation, so you can choose exactly what to clean up.
 
-### Useful Docker Commands
+## Useful Docker Commands
 
 ```bash
 # Stop everything, remove images, clean Docker, rebuild, and restart
@@ -236,7 +251,6 @@ docker compose exec wordpress bash
 - `wordpress-dev-nextjs-1` – Next.js frontend
 - `wordpress-dev-phpmyadmin-1` – phpMyAdmin tool
 - `wordpress-dev-db-1` – MySQL database server
-
 
 This repository contains tools for WordPress theme development, with a focus on rapid theme generation and customization.
 
