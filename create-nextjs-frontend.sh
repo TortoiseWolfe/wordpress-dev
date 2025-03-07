@@ -10,6 +10,8 @@
 #      The sample code defines a WPPost interface to avoid explicit "any" type errors.
 #   6. Creates a minimal root layout file if one doesn't exist.
 #   7. Installs project dependencies using npm.
+#   8. Sets up Storybook for the Next.js project with App Router support.
+#   9. Creates a sample Button component and story to get started with Storybook.
 #
 # IMPORTANT:
 # - Run this script from your project’s root directory.
@@ -32,14 +34,16 @@ function error_exit {
 # Check if .env file exists and load it
 if [ -f ".env" ]; then
   echo "Loading environment variables from .env file..."
-  source .env
+  # Use grep to extract values instead of source to avoid readonly variable issues
+  DOMAIN=$(grep -E "^DOMAIN=" .env | cut -d= -f2)
 else
   echo "Warning: .env file not found. Using default values."
   echo "It's recommended to run setup-script.sh first to create the .env file."
+  DOMAIN="localhost"
 fi
 
-# Check if the nextjs-frontend directory already exists.
-if [ -d "./nextjs-frontend" ]; then
+# Check if the nextjs-frontend directory already exists, unless SKIP_EXISTS_CHECK is set
+if [ -d "./nextjs-frontend" ] && [ "${SKIP_EXISTS_CHECK:-0}" != "1" ]; then
   error_exit "Directory 'nextjs-frontend' already exists. Please remove or rename it before running this script."
 fi
 
@@ -74,7 +78,11 @@ cd nextjs-frontend || error_exit "Unable to change directory to 'nextjs-frontend
 # Get environment variables from the main .env file if it exists
 if [ -f "../.env" ]; then
   echo "Loading environment variables from main .env file..."
-  source "../.env"
+  # Use grep to extract values safely
+  PARENT_DOMAIN=$(grep -E "^DOMAIN=" "../.env" | cut -d= -f2)
+  if [ -n "$PARENT_DOMAIN" ]; then
+    DOMAIN="$PARENT_DOMAIN"
+  fi
 fi
 
 # Create a .env.local file with environment variables for WordPress integration
@@ -200,6 +208,246 @@ fi
 echo "Installing dependencies using npm..."
 npm install || error_exit "npm install failed."
 
+# Install testing libraries for TDD
+echo "Installing testing libraries for Test-Driven Development..."
+npm install --save-dev jest jest-environment-jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event || error_exit "Failed to install testing libraries."
+
+# Set up Storybook
+echo "Setting up Storybook for the Next.js project..."
+
+# Install Storybook using the automatic setup
+echo "Installing Storybook..."
+# Use simpler command to avoid compatibility issues
+npx storybook@latest init --yes || error_exit "Failed to install Storybook."
+
+# Add additional dependencies for Next.js App Router support
+echo "Installing additional dependencies for Next.js App Router support..."
+npm install --save-dev @storybook/nextjs || error_exit "Failed to install @storybook/nextjs addon."
+
+# Update Storybook configuration for Next.js with App Router
+echo "Configuring Storybook for Next.js with App Router..."
+
+# Update .storybook/main.js
+cat > .storybook/main.js <<'EOF'
+/** @type { import('@storybook/nextjs').StorybookConfig } */
+const config = {
+  stories: [
+    "../src/**/*.mdx",
+    "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"
+  ],
+  addons: [
+    "@storybook/addon-links",
+    "@storybook/addon-essentials",
+    "@storybook/addon-onboarding",
+    "@storybook/addon-interactions",
+  ],
+  framework: {
+    name: "@storybook/nextjs",
+    options: {},
+  },
+  docs: {
+    autodocs: "tag",
+  },
+  staticDirs: ['../public'],
+};
+export default config;
+EOF
+
+# Create a sample Button component and story
+mkdir -p src/components
+mkdir -p src/stories
+
+# Create Button component
+cat > src/components/Button.tsx <<'EOF'
+import React from 'react';
+
+export interface ButtonProps {
+  /**
+   * Primary or secondary button
+   */
+  primary?: boolean;
+  /**
+   * Button contents
+   */
+  label: string;
+  /**
+   * Optional click handler
+   */
+  onClick?: () => void;
+}
+
+/**
+ * Primary UI component for user interaction
+ */
+export const Button = ({
+  primary = false,
+  label,
+  ...props
+}: ButtonProps) => {
+  const baseStyles = 'rounded-md font-semibold px-4 py-2';
+  const colorStyles = primary 
+    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+    : 'bg-gray-200 text-gray-800 hover:bg-gray-300';
+
+  return (
+    <button
+      type="button"
+      className={`${baseStyles} ${colorStyles}`}
+      {...props}
+    >
+      {label}
+    </button>
+  );
+};
+EOF
+
+# Create Button story
+cat > src/stories/Button.stories.tsx <<'EOF'
+import type { Meta, StoryObj } from '@storybook/react';
+import { Button } from '../components/Button';
+
+// Meta information about the component
+const meta = {
+  title: 'Components/Button',
+  component: Button,
+  parameters: {
+    layout: 'centered',
+  },
+  tags: ['autodocs'],
+  argTypes: {
+    onClick: { action: 'clicked' },
+  },
+} satisfies Meta<typeof Button>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+// Primary button story
+export const Primary: Story = {
+  args: {
+    primary: true,
+    label: 'Button',
+  },
+};
+
+// Secondary button story
+export const Secondary: Story = {
+  args: {
+    primary: false,
+    label: 'Button',
+  },
+};
+
+// Large primary button story
+export const Large: Story = {
+  args: {
+    primary: true,
+    label: 'Large Button',
+  },
+};
+EOF
+
+# Update package.json to add test and build scripts
+# Use jq to modify the package.json file if available, otherwise use a safer approach
+if command -v jq &> /dev/null; then
+  # Use jq if available
+  jq '.scripts["build-storybook"] = "storybook build -o storybook-static"' package.json > package.json.tmp
+  mv package.json.tmp package.json
+  
+  # Add Jest test commands
+  jq '.scripts["test"] = "jest"' package.json > package.json.tmp
+  mv package.json.tmp package.json
+  
+  jq '.scripts["test:watch"] = "jest --watch"' package.json > package.json.tmp
+  mv package.json.tmp package.json
+else
+  # Fallback to npm for adding the scripts
+  npm pkg set scripts.build-storybook="storybook build -o storybook-static"
+  npm pkg set scripts.test="jest"
+  npm pkg set scripts.test:watch="jest --watch"
+fi
+
+# Create Jest config file
+cat > jest.config.js <<'EOF'
+const nextJest = require('next/jest');
+
+const createJestConfig = nextJest({
+  // Provide the path to your Next.js app to load next.config.js and .env files in your test environment
+  dir: './',
+});
+
+// Add any custom config to be passed to Jest
+const customJestConfig = {
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  testEnvironment: 'jest-environment-jsdom',
+  moduleNameMapper: {
+    // Handle module aliases (this will be automatically configured for you soon)
+    '^@/components/(.*)$': '<rootDir>/src/components/$1',
+    '^@/app/(.*)$': '<rootDir>/src/app/$1',
+  },
+  collectCoverage: true,
+  collectCoverageFrom: [
+    'src/**/*.{js,jsx,ts,tsx}',
+    '!src/**/*.stories.{js,jsx,ts,tsx}',
+    '!**/node_modules/**',
+    '!**/.storybook/**',
+  ],
+};
+
+// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
+module.exports = createJestConfig(customJestConfig);
+EOF
+
+# Create Jest setup file
+cat > jest.setup.js <<'EOF'
+// Learn more: https://github.com/testing-library/jest-dom
+import '@testing-library/jest-dom';
+EOF
+
+# Create a test file for the Button component
+mkdir -p src/components/__tests__
+cat > src/components/__tests__/Button.test.tsx <<'EOF'
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { Button } from '../Button';
+
+describe('Button Component', () => {
+  test('renders a primary button correctly', () => {
+    render(<Button primary label="Primary Button" />);
+    
+    const button = screen.getByRole('button', { name: /primary button/i });
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveClass('bg-blue-600'); // Primary style class
+  });
+
+  test('renders a secondary button correctly', () => {
+    render(<Button label="Secondary Button" />);
+    
+    const button = screen.getByRole('button', { name: /secondary button/i });
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveClass('bg-gray-200'); // Secondary style class
+  });
+
+  test('calls onClick handler when clicked', () => {
+    const handleClick = jest.fn();
+    render(<Button label="Click Me" onClick={handleClick} />);
+    
+    const button = screen.getByRole('button', { name: /click me/i });
+    fireEvent.click(button);
+    
+    expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+});
+EOF
+
+echo "Storybook and test-driven development have been successfully added to your Next.js project!"
+echo "You can start Storybook locally with: npm run storybook"
+echo "You can build Storybook for production with: npm run build-storybook"
+echo "You can run tests with: npm test"
+
 echo "Setup complete! Your Next.js front end is now created and connected to the WordPress backend."
 echo "You can run the development server using 'npm run dev'."
+echo "You can run Storybook using 'npm run storybook'."
+echo "You can run tests using 'npm test' or 'npm run test:watch' for development."
+echo "When deployed with Docker, Storybook will be available at http://localhost:6006"
 echo "Remember to integrate this setup carefully with your existing system and adhere to your established codebase standards."

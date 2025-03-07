@@ -31,7 +31,7 @@ This is a development environment for WordPress with a Next.js frontend that com
    ./create-steampunk-theme.sh
    ```
 
-4. Create a Next.js frontend (optional):
+4. Create a Next.js frontend with Storybook and Testing (optional):
 
    ```bash
    chmod +x create-nextjs-frontend.sh
@@ -134,20 +134,50 @@ This repository includes tools to verify your environment is working correctly, 
 
 ### Test Suite
 
-Run the test suite to verify your environment is set up correctly:
+There are multiple test scripts available to verify your environment:
+
+#### Complete Test (Recommended)
+
+For a comprehensive test of the entire workflow:
 
 ```bash
-./test-environment.sh
+# Standard test using mock setup (faster)
+./test-complete.sh
+
+# Force recreation of any existing frontend
+./test-complete.sh --force-recreate
+
+# Create a real Next.js frontend with Storybook and run a full test
+./test-complete.sh --with-real-creation
 ```
 
-This script will check:
+This test follows the logical workflow a user would follow:
+
+1. Sets up the environment
+2. Creates a Next.js frontend with Storybook and testing support
+3. Starts all Docker containers
+4. Verifies all services are running and accessible
+5. Cleans up after completion
+
+The test includes retry logic for service availability and provides detailed output about what's being tested. When running with `--with-real-creation`, it will create an actual Next.js frontend with Storybook rather than using mock files, providing a more thorough but slower test.
+
+#### Individual Component Tests
+
+For testing specific parts of the environment:
+
+```bash
+./test-environment.sh  # Test just the environment setup
+./test-scripts.sh      # Test just the creation scripts
+```
+
+The individual test scripts check:
 
 - Docker and Docker Compose are properly installed
-- All containers are running
+- All containers are running (WordPress, MySQL, Next.js, and Storybook)
 - The themes directory has the correct permissions
 - Services are reachable on their respective ports
-- File creation works correctly in the themes directory
-- The WordPress container is using the correct user
+- Storybook is correctly configured and accessible
+- Testing setup is properly configured
 
 ### Container Inspector
 
@@ -178,6 +208,8 @@ This script will:
 
 - Check if all the required scripts exist and are executable
 - Test the Next.js frontend creation script
+- Verify that Storybook is properly set up
+- Check that component tests are created correctly
 - Verify that the theme creation process works
 - Validate the created files and directories
 
@@ -237,6 +269,10 @@ docker compose exec wordpress bash
   URL: [http://localhost:3000](http://localhost:3000)  
   *React-based frontend interacting with WordPress via the REST API.*
 
+- **Storybook**  
+  URL: [http://localhost:6006](http://localhost:6006)  
+  *UI component explorer for the Next.js frontend.*
+
 - **phpMyAdmin**  
   URL: [http://localhost:8080](http://localhost:8080)  
   *Web interface for database management.*
@@ -249,6 +285,7 @@ docker compose exec wordpress bash
 
 - `wordpress-dev-wordpress-1` – WordPress core application
 - `wordpress-dev-nextjs-1` – Next.js frontend
+- `wordpress-dev-storybook-1` – Storybook component explorer
 - `wordpress-dev-phpmyadmin-1` – phpMyAdmin tool
 - `wordpress-dev-db-1` – MySQL database server
 
@@ -256,9 +293,12 @@ This repository contains tools for WordPress theme development, with a focus on 
 
 ## Repository Structure
 
-- `docker-compose.yaml` - Docker setup for WordPress, MySQL, phpMyAdmin and Next.js
+- `docker-compose.yaml` - Docker setup for WordPress, MySQL, phpMyAdmin, Next.js, and Storybook
 - `create-steampunk-theme.sh` - Script to generate custom WordPress themes
-- `create-nextjs-frontend.sh` - Script to create a Next.js frontend
+- `create-nextjs-frontend.sh` - Script to create a Next.js frontend with Storybook and testing
+- `test-complete.sh` - Complete workflow test script (follows the logical user workflow)
+- `test-environment.sh` - Script to verify your environment is set up correctly
+- `test-scripts.sh` - Script to test the creation scripts (including Storybook setup)
 - `setup-script.sh` - Helper script for environment setup
 - `themes/` - Directory where generated themes are stored
 - `nextjs-frontend/` - Next.js frontend project (if created)
@@ -390,6 +430,121 @@ The generated themes include full TailwindCSS support. You can customize:
 - Color variables in `tailwind/steampunk-variables.css`
 - Component styles in `assets/css/steampunk-theme.css`
 - Tailwind configuration in `tailwind.config.js`
+
+## Using Storybook
+
+Storybook is a development environment for UI components. It allows you to:
+
+1. Browse a component library
+2. View the different states of each component
+3. Interactively develop and test components in isolation
+
+### Storybook in Your Next.js Project
+
+When you create a Next.js frontend using the `create-nextjs-frontend.sh` script, Storybook is automatically set up for you. The setup:
+
+- Installs Storybook and its dependencies
+- Configures Storybook for Next.js with App Router
+- Creates a sample Button component and story
+- Updates package.json with Storybook scripts
+
+### Accessing Storybook
+
+Once set up, you can access Storybook at [http://localhost:6006](http://localhost:6006).
+
+### Creating Stories
+
+To create a new story for a component:
+
+1. Create your component in `src/components/`
+2. Create a story file in `src/stories/` with the naming pattern `ComponentName.stories.tsx`
+
+Example story structure:
+
+```tsx
+import type { Meta, StoryObj } from '@storybook/react';
+import { YourComponent } from '../components/YourComponent';
+
+const meta = {
+  title: 'Components/YourComponent',
+  component: YourComponent,
+  parameters: {
+    layout: 'centered',
+  },
+  tags: ['autodocs'],
+} satisfies Meta<typeof YourComponent>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
+  args: {
+    // Component props here
+  },
+};
+```
+
+### Updating Storybook
+
+After making changes to your components or stories, you can rebuild and restart the Storybook container:
+
+```bash
+docker compose up -d --build storybook
+```
+
+### Test-Driven Development
+
+The Next.js frontend comes with a complete testing setup using Jest and React Testing Library:
+
+- **Jest**: JavaScript testing framework with a focus on simplicity
+- **React Testing Library**: Testing utilities that encourage good testing practices
+
+#### Running Tests
+
+You can run tests with the following commands:
+
+```bash
+# Inside the nextjs-frontend directory
+npm test        # Run tests once
+npm run test:watch  # Run tests in watch mode during development
+```
+
+#### Test Structure
+
+Tests are organized in `__tests__` directories next to the components they test:
+
+``` bash
+src/
+  components/
+    Button.tsx
+    __tests__/
+      Button.test.tsx
+```
+
+#### Writing Tests
+
+Tests follow the React Testing Library pattern, focusing on component behavior rather than implementation details:
+
+```tsx
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { YourComponent } from '../YourComponent';
+
+describe('YourComponent', () => {
+  test('should render correctly', () => {
+    render(<YourComponent />);
+    expect(screen.getByText('Expected Text')).toBeInTheDocument();
+  });
+  
+  test('should respond to user interaction', () => {
+    const handleClick = jest.fn();
+    render(<YourComponent onClick={handleClick} />);
+    
+    fireEvent.click(screen.getByRole('button'));
+    expect(handleClick).toHaveBeenCalled();
+  });
+});
+```
 
 ## License
 

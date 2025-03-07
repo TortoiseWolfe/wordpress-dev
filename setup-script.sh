@@ -16,8 +16,10 @@ if [ ! -f .env ] && [ -f .env.example ]; then
   cp .env.example .env
   
   # Auto-detect current user's UID and GID
-  sed -i "s/UID=1000/UID=$(id -u)/" .env
-  sed -i "s/GID=1000/GID=$(id -g)/" .env
+  USER_ID=$(id -u)
+  GROUP_ID=$(id -g)
+  sed -i "s/^UID=.*/UID=$USER_ID/" .env
+  sed -i "s/^GID=.*/GID=$GROUP_ID/" .env
   
   echo -e "${GREEN}.env file created with your user permissions.${NC}"
 fi
@@ -50,10 +52,11 @@ if [ "$START_ENV" = "y" ] || [ "$START_ENV" = "Y" ]; then
   echo -e "WordPress: ${GREEN}http://localhost:$WP_PORT${NC}"
   echo -e "PhpMyAdmin: ${GREEN}http://localhost:$PMA_PORT${NC}"
   echo -e "Next.js Frontend: ${GREEN}http://localhost:3000${NC}"
+  echo -e "Storybook: ${GREEN}http://localhost:6006${NC}"
 else
   echo -e "${BLUE}You can start the environment later with:${NC} docker-compose up -d"
 fi
 
 echo -e "\n${GREEN}Setup completed successfully!${NC}"
 echo -e "You can create a steampunk theme with: ${BLUE}./create-steampunk-theme.sh${NC}"
-echo -e "You can create a Next.js frontend with: ${BLUE}./create-nextjs-frontend.sh${NC}"
+echo -e "You can create a Next.js frontend with Storybook and testing with: ${BLUE}./create-nextjs-frontend.sh${NC}"

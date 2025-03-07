@@ -66,6 +66,19 @@ services:
       - wp_network
     restart: always
 
+  # Storybook
+  storybook:
+    build:
+      context: . # Use root context
+      dockerfile: Dockerfile.storybook
+    ports:
+      - "6006:80" # Map Storybook to port 6006, which is the standard Storybook port
+    depends_on:
+      - nextjs
+    networks:
+      - wp_network
+    restart: always
+
   # phpMyAdmin
   phpmyadmin:
     image: phpmyadmin/phpmyadmin

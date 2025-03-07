@@ -1,0 +1,49 @@
+# Stage 1: Dependencies
+FROM node:20-alpine AS deps
+WORKDIR /app
+
+# Copy package files
+COPY nextjs-frontend/package.json nextjs-frontend/package-lock.json* ./
+
+# Set correct permissions for node_modules
+RUN mkdir -p /app/node_modules && chown -R node:node /app
+USER node
+RUN npm ci
+
+# Stage 2: Builder
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Ensure builder has correct permissions
+RUN mkdir -p /app/.storybook && chown -R node:node /app
+USER node
+
+# Copy dependencies from deps stage
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+
+# Copy the entire Next.js project from the nextjs-frontend folder
+COPY --chown=node:node nextjs-frontend/ ./
+
+# Build Storybook if it hasn't been built already
+ENV NODE_ENV=production
+RUN if [ ! -d "storybook-static" ] || [ -z "$(ls -A storybook-static 2>/dev/null)" ]; then \
+      npm run build-storybook; \
+    else \
+      echo "Using pre-built Storybook static files"; \
+    fi
+
+# Stage 3: Runner
+FROM nginx:alpine AS runner
+WORKDIR /usr/share/nginx/html
+
+# Copy the built Storybook files
+COPY --from=builder /app/storybook-static ./
+
+# Copy a custom nginx config if needed
+# COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose the port that Nginx listens on
+EXPOSE 6006
+
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]
