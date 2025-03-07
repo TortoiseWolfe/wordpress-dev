@@ -68,7 +68,7 @@ run_test "Next.js frontend creation" "echo 'y' | ./create-nextjs-frontend.sh && 
 # Verify frontend contents
 if [ -d "nextjs-frontend" ]; then
   run_test "Next.js package.json exists" "[ -f 'nextjs-frontend/package.json' ] && grep -q 'next' 'nextjs-frontend/package.json' && echo 'Next.js package.json is valid'" "Next.js package.json is valid"
-  run_test "Next.js has pages directory" "[ -d 'nextjs-frontend/pages' ] && echo 'Pages directory exists'" "Pages directory exists"
+  run_test "Next.js has app directory" "[ -d 'nextjs-frontend/src/app' ] && echo 'App directory exists'" "App directory exists"
 else
   echo -e "${RED}Skipping Next.js content tests as directory was not created${NC}"
   TESTS_TOTAL=$((TESTS_TOTAL + 2))
