@@ -14,16 +14,23 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD}
     networks:
       - wp_network
+    # Add explicit healthcheck so WordPress waits for MySQL to be ready
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   # WordPress
   wordpress:
     image: wordpress:latest
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
-      - "80:80" # Expose container port 80 on host port 80
+      - "80:80" # Use standard HTTP port
     restart: always
-    user: "${UID}:${GID}"
+    # Don't specify user to use default WordPress container user
     env_file: .env
     environment:
       WORDPRESS_DB_HOST: db
@@ -43,15 +50,16 @@ services:
     build:
       context: . # Use root where Dockerfile is located
       dockerfile: Dockerfile # Explicitly specify Dockerfile
+      args:
+        - NEXT_PUBLIC_WORDPRESS_API_URL=http://wordpress:80/wp-json
     ports:
-      - "3000:3000" # Expose Next.js default port 3000 to host
+      - "3000:3000" # Use standard Next.js port
     environment:
       - NODE_ENV=${NODE_ENV:-production}
-      - WORDPRESS_API_URL=http://wordpress:80/wp-json
+      - NEXT_PUBLIC_WORDPRESS_API_URL=http://wordpress:80/wp-json
       - NEXT_PUBLIC_WORDPRESS_URL=http://${DOMAIN:-localhost}
-    volumes:
-      - ./nextjs-frontend:/app
-      - /app/node_modules
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
     depends_on:
       - wordpress
     networks:
@@ -64,7 +72,7 @@ services:
     depends_on:
       - db
     ports:
-      - "${PMA_PORT:-8080}:80" # Expose phpMyAdmin on host port 8080
+      - "8080:80" # Expose phpMyAdmin on standard port 8080
     environment:
       PMA_HOST: db
       PMA_USER: root

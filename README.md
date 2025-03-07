@@ -1,27 +1,95 @@
 # WordPress Development Environment
 
+This is a development environment for WordPress with a Next.js frontend that communicates with WordPress via its REST API. The setup supports both local development and production deployment.
+
+## Quick Start
+
+1. Copy the environment sample file and customize it:
+   ```bash
+   cp .env.sample .env
+   ```
+
+2. Start the development environment:
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. Access the services at the URLs listed below.
+
+## Environment Configuration
+
+This project uses environment variables for configuration. You can specify:
+
+- **Development Mode**:
+  ```bash
+  # In .env file
+  NODE_ENV=development
+  ENVIRONMENT=development
+  ```
+
+- **Staging Mode**:
+  ```bash
+  # In .env file
+  NODE_ENV=production
+  ENVIRONMENT=staging
+  ```
+
+- **Production Mode**:
+  ```bash
+  # In .env file
+  NODE_ENV=production
+  ENVIRONMENT=production
+  DOMAIN=your-production-domain.com
+  ```
+
+### Network Configuration
+
+The Next.js container is configured to:
+- Listen on all network interfaces (0.0.0.0)
+- Connect to WordPress via internal Docker network
+- Use environment variables for configuration
+
+Important environment variables:
+- `HOSTNAME=0.0.0.0` - Makes the server accessible from outside the container
+- `PORT=3000` - Sets the port the server listens on
+- `NEXT_PUBLIC_WORDPRESS_API_URL` - WordPress REST API endpoint
+
+## Deployment
+
+For production deployment:
+
+1. Ensure you have proper environment variables set in your `.env` file
+2. Build and deploy:
+   ```bash
+   # Build with production configuration
+   docker compose -f docker-compose.yaml up -d --build
+   ```
+
+## Useful Docker Commands
+
 ```bash
 # Stop everything, remove images, clean Docker, rebuild, and restart
 docker compose down
 docker rmi wordpress-dev-nextjs
 docker system prune -af --volumes
-```
-
-```bash
 docker compose up -d --build --no-cache
 ```
 
 ```bash
-
+# Rebuild and recreate containers without removing volumes
 docker compose up -d --build --force-recreate
 ```
 
 ```bash
-
+# View logs for the Next.js frontend
 docker compose logs nextjs
-```
 
-## WordPress Development Environment Services
+# View logs for the WordPress container
+docker compose logs wordpress
+
+# Access shell in the WordPress container
+docker compose exec wordpress bash
+```
 
 ## Services & URLs
 
@@ -47,15 +115,6 @@ docker compose logs nextjs
 - `wordpress-dev-nextjs-1` – Next.js frontend
 - `wordpress-dev-phpmyadmin-1` – phpMyAdmin tool
 - `wordpress-dev-db-1` – MySQL database server
-
-## Docker Commands
-
-```bash
-# View logs for the WordPress container
-docker compose logs wordpress
-
-# Access shell in the WordPress container
-docker compose exec wordpress bash
 
 
 This repository contains tools for WordPress theme development, with a focus on rapid theme generation and customization.
