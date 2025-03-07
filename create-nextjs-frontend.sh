@@ -29,6 +29,15 @@ function error_exit {
   exit 1
 }
 
+# Check if .env file exists and load it
+if [ -f ".env" ]; then
+  echo "Loading environment variables from .env file..."
+  source .env
+else
+  echo "Warning: .env file not found. Using default values."
+  echo "It's recommended to run setup-script.sh first to create the .env file."
+fi
+
 # Check if the nextjs-frontend directory already exists.
 if [ -d "./nextjs-frontend" ]; then
   error_exit "Directory 'nextjs-frontend' already exists. Please remove or rename it before running this script."
@@ -62,14 +71,20 @@ echo "Next.js project created successfully."
 # Change to the newly created project directory.
 cd nextjs-frontend || error_exit "Unable to change directory to 'nextjs-frontend'."
 
-# Create a .env.local file with environment variables for WordPress integration.
-cat > .env.local <<'EOF'
+# Get environment variables from the main .env file if it exists
+if [ -f "../.env" ]; then
+  echo "Loading environment variables from main .env file..."
+  source "../.env"
+fi
+
+# Create a .env.local file with environment variables for WordPress integration
+cat > .env.local <<EOF
 # Environment variables for Next.js to connect to the WordPress backend.
 WORDPRESS_API_URL=http://wordpress:80/wp-json
-NEXT_PUBLIC_WORDPRESS_URL=http://localhost
+NEXT_PUBLIC_WORDPRESS_URL=http://${DOMAIN:-localhost}
 EOF
 
-echo ".env.local file created with WordPress backend configuration."
+echo ".env.local file created with WordPress backend configuration using DOMAIN=${DOMAIN:-localhost}."
 
 # Ensure next.config.js is configured for standalone output.
 if [ ! -f "next.config.js" ]; then

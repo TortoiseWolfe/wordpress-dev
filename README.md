@@ -4,43 +4,95 @@ This is a development environment for WordPress with a Next.js frontend that com
 
 ## Quick Start
 
-1. Copy the environment sample file and customize it:
+1. Run the setup script to create the environment file and set up permissions:
    ```bash
-   cp .env.sample .env
+   chmod +x setup-script.sh
+   ./setup-script.sh
+   ```
+   
+   This script will:
+   - Create a `.env` file from `.env.example` if it doesn't exist
+   - Set proper permissions for the themes directory
+   - Configure Next.js environment variables (if Next.js frontend exists)
+   - Start the Docker containers
+
+   **Note on Permissions**: This setup uses the host user's UID/GID in the WordPress container to avoid permission issues. The themes directory is also given 777 permissions to ensure both the container and host user can access it.
+
+2. Once the setup script completes, access the services at:
+   - WordPress: [http://localhost:80](http://localhost:80)
+   - phpMyAdmin: [http://localhost:8080](http://localhost:8080)
+   - Next.js (if set up): [http://localhost:3000](http://localhost:3000)
+
+3. Generate a WordPress theme (optional):
+   ```bash
+   chmod +x create-steampunk-theme.sh
+   ./create-steampunk-theme.sh
    ```
 
-2. Start the development environment:
+4. Create a Next.js frontend (optional):
    ```bash
-   docker compose up -d --build
+   chmod +x create-nextjs-frontend.sh
+   ./create-nextjs-frontend.sh
    ```
-
-3. Access the services at the URLs listed below.
 
 ## Environment Configuration
 
-This project uses environment variables for configuration. You can specify:
+This project uses a consolidated approach to environment variables, with a single `.env` file that controls all aspects of the development environment. The setup script will automatically create this file from `.env.example` if it doesn't exist.
 
-- **Development Mode**:
-  ```bash
-  # In .env file
-  NODE_ENV=development
-  ENVIRONMENT=development
-  ```
+### Key Environment Variables
 
-- **Staging Mode**:
-  ```bash
-  # In .env file
-  NODE_ENV=production
-  ENVIRONMENT=staging
-  ```
+The environment variables are organized into categories:
 
-- **Production Mode**:
-  ```bash
-  # In .env file
-  NODE_ENV=production
-  ENVIRONMENT=production
-  DOMAIN=your-production-domain.com
-  ```
+1. **Database Configuration**
+   ```bash
+   DB_NAME=wordpress
+   DB_USER=wordpress
+   DB_PASSWORD=wordpress_password
+   DB_ROOT_PASSWORD=root_password
+   ```
+
+2. **WordPress Configuration**
+   ```bash
+   WP_PORT=80  # Port for WordPress site
+   WP_DEBUG=1  # Enable WordPress debug mode
+   ```
+
+3. **Node.js/Next.js Configuration**
+   ```bash
+   NODE_ENV=development  # or production
+   HOSTNAME=0.0.0.0  # Makes NextJS accessible externally
+   PORT=3000  # Next.js port
+   ```
+
+4. **Deployment Environment**
+   ```bash
+   # Development mode
+   ENVIRONMENT=development
+   DOMAIN=localhost
+
+   # Staging mode
+   ENVIRONMENT=staging
+   
+   # Production mode
+   ENVIRONMENT=production
+   DOMAIN=your-production-domain.com
+   ```
+
+5. **Theme Configuration**
+   ```bash
+   THEME_NAME="Your Theme Name"
+   THEME_DESCRIPTION="Theme description"
+   THEME_PRIMARY_COLOR="#B87333"  # Copper tone
+   # And many more theme-related variables
+   ```
+
+### Scripts and Environment Variables
+
+The project's scripts automatically use these environment variables:
+
+- **setup-script.sh**: Creates/updates the `.env` file and configures user permissions
+- **create-nextjs-frontend.sh**: Creates a Next.js project with appropriate environment variables
+- **create-steampunk-theme.sh**: Generates WordPress themes using theme-related variables
 
 ### Network Configuration
 
@@ -65,7 +117,76 @@ For production deployment:
    docker compose -f docker-compose.yaml up -d --build
    ```
 
-## Useful Docker Commands
+## Testing, Debugging, and Maintenance
+
+This repository includes tools to verify your environment is working correctly, to help diagnose issues, and to clean up when needed.
+
+### Test Suite
+
+Run the test suite to verify your environment is set up correctly:
+
+```bash
+./test-environment.sh
+```
+
+This script will check:
+- Docker and Docker Compose are properly installed
+- All containers are running
+- The themes directory has the correct permissions
+- Services are reachable on their respective ports
+- File creation works correctly in the themes directory
+- The WordPress container is using the correct user
+
+### Container Inspector
+
+For more detailed debugging information, use the container inspector:
+
+```bash
+./inspect-containers.sh
+```
+
+This provides comprehensive information about your Docker environment, including:
+- Container configurations
+- Network settings
+- Volume mounts
+- Resource usage
+- Service-specific information (WordPress version, PHP version, database size, etc.)
+- Host system information
+
+### Script Tests
+
+To verify that the creation scripts (for themes and Next.js frontend) work correctly, run:
+
+```bash
+./test-scripts.sh
+```
+
+This script will:
+- Check if all the required scripts exist and are executable
+- Test the Next.js frontend creation script
+- Verify that the theme creation process works
+- Validate the created files and directories
+
+### Cleanup Script
+
+When you need to clean up your environment (to reset or to free up resources), use the cleanup script:
+
+```bash
+./cleanup.sh
+```
+
+This interactive script allows you to:
+- Stop all Docker containers
+- Remove Docker volumes (database, uploads, etc.)
+- Remove Docker images
+- Clean the themes directory
+- Remove the Next.js frontend
+- Delete the .env file
+- Run Docker system prune to clean up unused resources
+
+Each step requires confirmation, so you can choose exactly what to clean up.
+
+### Useful Docker Commands
 
 ```bash
 # Stop everything, remove images, clean Docker, rebuild, and restart
@@ -119,37 +240,19 @@ docker compose exec wordpress bash
 
 This repository contains tools for WordPress theme development, with a focus on rapid theme generation and customization.
 
-## Quick Start
-
-1. Clone this repository
-
-   ```bash
-   git clone https://github.com/TortoiseWolfe/wordpress-dev.git
-   cd wordpress-dev
-   ```
-
-2. Run Docker Compose to set up the WordPress environment
-
-   ```bash
-   docker-compose up -d
-   ```
-
-3. Generate a new WordPress theme
-
-   ```bash
-   ./theme-generator.sh
-   ```
-
 ## Repository Structure
 
-- `docker-compose.yaml` - Docker setup for WordPress, MySQL, and phpMyAdmin
-- `theme-generator.sh` - Script to generate custom WordPress themes
+- `docker-compose.yaml` - Docker setup for WordPress, MySQL, phpMyAdmin and Next.js
+- `create-steampunk-theme.sh` - Script to generate custom WordPress themes
+- `create-nextjs-frontend.sh` - Script to create a Next.js frontend
 - `setup-script.sh` - Helper script for environment setup
 - `themes/` - Directory where generated themes are stored
+- `nextjs-frontend/` - Next.js frontend project (if created)
+- `.env.example` - Template for environment variables
 
-## Theme Generator Script
+## Steampunk Theme Generator
 
-The `theme-generator.sh` script creates WordPress themes with a steampunk aesthetic, featuring:
+The `create-steampunk-theme.sh` script creates WordPress themes with a steampunk aesthetic, featuring:
 
 - Responsive design with Tailwind CSS
 - Dark/light mode toggle
@@ -161,7 +264,7 @@ The `theme-generator.sh` script creates WordPress themes with a steampunk aesthe
 
 ### Using Code Folding Regions
 
-The `theme-generator.sh` script uses code folding regions for better organization. These regions help navigate the large script file by allowing you to collapse sections of code.
+The `create-steampunk-theme.sh` script uses code folding regions for better organization. These regions help navigate the large script file by allowing you to collapse sections of code.
 
 #### How to Use Code Folding
 
@@ -209,7 +312,7 @@ The script is organized into the following code regions:
 
 ## Theme Configuration
 
-Before running the theme generator script, you can create a `.env` file with the following variables:
+The theme configuration is handled through the .env file. Before running the theme generator script, make sure the following variables are set in your `.env` file:
 
 ```bash
 THEME_NAME="Your Theme Name"
@@ -233,11 +336,13 @@ The WordPress development environment includes:
 - WordPress (latest)
 - MySQL (5.7)
 - phpMyAdmin (latest)
+- Next.js frontend (optional)
 
 Access the services at:
 
-- WordPress: <http://localhost:8080>
-- phpMyAdmin: <http://localhost:8081>
+- WordPress: <http://localhost:80>
+- phpMyAdmin: <http://localhost:8080>
+- Next.js (if created): <http://localhost:3000>
 
 ## Developing with Generated Themes
 

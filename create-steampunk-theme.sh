@@ -19,26 +19,33 @@ fi
 # endregion
 
 # region: Environment Configuration
-# Check for .env file, copy from .env.example if it doesn't exist
+# Check for .env file, create from .env.example if it doesn't exist
 if [ ! -f .env ] && [ -f .env.example ]; then
   echo -e "${BLUE}Creating .env file from .env.example...${NC}"
   cp .env.example .env
+  
+  # Replace default UID/GID with current user's values
+  sed -i "s/UID=1000/UID=$(id -u)/" .env
+  sed -i "s/GID=1000/GID=$(id -g)/" .env
+  
   echo -e "${GREEN}.env file created. Please edit it with your preferred settings and run the script again.${NC}"
   echo "You can edit the file with: nano .env"
   exit 0
 elif [ ! -f .env ]; then
   echo -e "${RED}Error: .env file not found and no .env.example to copy from.${NC}"
+  echo "Please run the setup-script.sh first or create a .env file manually."
   exit 1
 fi
 
 # Load variables
 source .env
 
-# Validate required variables
+# Validate required theme variables
 if [ -z "$THEME_NAME" ] || [ -z "$THEME_DESCRIPTION" ] || [ -z "$THEME_PRIMARY_COLOR" ] || [ -z "$THEME_AUTHOR" ]; then
   echo -e "${RED}Error: Missing required variables in .env file.${NC}"
   echo "Required variables:"
   echo "  THEME_NAME, THEME_DESCRIPTION, THEME_PRIMARY_COLOR, THEME_AUTHOR"
+  echo "Please check your .env file and ensure these variables are defined."
   exit 1
 fi
 
@@ -60,8 +67,48 @@ echo -e "${GREEN}Creating WordPress theme: $THEME_NAME${NC}"
 echo "Theme slug: $THEME_SLUG"
 echo "Theme prefix: $THEME_PREFIX"
 
-# Create theme directory
-THEME_DIR="themes/$THEME_SLUG"
+# Load theme directory path from .env if available
+source .env
+THEMES_DIR=${THEMES_PATH:-"themes"}
+
+# Create theme directory path
+THEME_DIR="$THEMES_DIR/$THEME_SLUG"
+
+# Ensure themes directory exists
+if [ ! -d "$THEMES_DIR" ]; then
+  echo -e "${RED}Error: Theme directory '$THEMES_DIR' does not exist.${NC}"
+  echo "Please run setup-script.sh first to create the themes directory."
+  exit 1
+fi
+
+# Test if we can write to the themes directory
+if [ ! -w "$THEMES_DIR" ]; then
+  echo -e "${RED}Warning: Cannot write to '$THEMES_DIR' directory due to permissions.${NC}"
+  echo "Current user: $(whoami) ($(id -u):$(id -g))"
+  echo "Theme directory: $THEMES_DIR"
+  echo -e "${BLUE}Attempting to fix permissions...${NC}"
+  
+  # Try to fix permissions on themes directory
+  chmod -R 777 "$THEMES_DIR" 2>/dev/null
+  
+  # Check if fix worked
+  if [ ! -w "$THEMES_DIR" ]; then
+    # Create a temporary directory to generate the theme
+    TEMP_DIR=$(mktemp -d)
+    echo -e "${BLUE}Creating theme in temporary directory: $TEMP_DIR${NC}"
+    ORIGINAL_THEME_DIR="$THEME_DIR"
+    THEME_DIR="$TEMP_DIR/$THEME_SLUG"
+    
+    # We'll move the files at the end
+    USE_TEMP_DIR=1
+  else
+    echo -e "${GREEN}Fixed permissions for '$THEMES_DIR'.${NC}"
+    USE_TEMP_DIR=0
+  fi
+else
+  echo -e "${GREEN}Theme directory '$THEMES_DIR' is writable.${NC}"
+  USE_TEMP_DIR=0
+fi
 
 if [ -d "$THEME_DIR" ]; then
   echo -e "${RED}Warning: Theme directory already exists.${NC}"
@@ -3807,12 +3854,51 @@ cd ../..
 
 # Now ZIP the theme
 echo -e "${BLUE}Creating ZIP archive of the theme...${NC}"
-cd themes
-zip -r "${THEME_SLUG}.zip" "$THEME_SLUG" -x "*.DS_Store" -x "*.git*" -x "*node_modules*"
-cd ..
+
+# If we used a temporary directory, we need to move the theme to the target directory
+if [ "$USE_TEMP_DIR" = "1" ]; then
+  echo -e "${BLUE}Moving theme from temporary directory to target location...${NC}"
+  
+  # Create a zip file in the temp directory
+  cd "$TEMP_DIR"
+  zip -r "${THEME_SLUG}.zip" "$THEME_SLUG" -x "*.DS_Store" -x "*.git*" -x "*node_modules*"
+  
+  # Try to move the zip file to the themes directory
+  if [ -w "$THEMES_DIR" ]; then
+    # If we can write to the themes directory directly
+    mv "${THEME_SLUG}.zip" "$THEMES_DIR/"
+    echo -e "${GREEN}Theme zip file moved to: $THEMES_DIR/${THEME_SLUG}.zip${NC}"
+  else
+    # Otherwise, ask the user to move it with sudo
+    echo -e "${RED}Cannot write to themes directory directly.${NC}"
+    echo "Theme zip file created at: $TEMP_DIR/${THEME_SLUG}.zip"
+    echo "To install, you'll need to manually move this file to your WordPress themes directory."
+    
+    # Provide a command they can run
+    echo -e "${BLUE}You can run this command to move it:${NC}"
+    echo "sudo mv \"$TEMP_DIR/${THEME_SLUG}.zip\" \"$THEMES_DIR/\""
+    
+    # Ask if they want to try with sudo now
+    read -p "Would you like to try moving the theme with sudo now? (y/n): " TRY_SUDO
+    if [ "$TRY_SUDO" = "y" ]; then
+      sudo mv "$TEMP_DIR/${THEME_SLUG}.zip" "$THEMES_DIR/"
+      echo -e "${GREEN}Theme zip file moved to: $THEMES_DIR/${THEME_SLUG}.zip${NC}"
+    fi
+  fi
+  
+  # Clean up the temp directory path for the success message
+  FINAL_ZIP_PATH="$THEMES_DIR/${THEME_SLUG}.zip"
+else
+  # Original behavior if we have direct write access
+  cd "$THEMES_DIR"
+  zip -r "${THEME_SLUG}.zip" "$THEME_SLUG" -x "*.DS_Store" -x "*.git*" -x "*node_modules*"
+  cd - > /dev/null
+  FINAL_ZIP_PATH="$THEMES_DIR/${THEME_SLUG}.zip"
+fi
+
 echo -e "${GREEN}Theme created successfully!${NC}"
 echo "Theme location: $THEME_DIR"
-echo "ZIP archive: themes/${THEME_SLUG}.zip"
+echo "ZIP archive: $FINAL_ZIP_PATH"
 echo ""
 echo "To use this theme:"
 echo "1. Install WordPress"
