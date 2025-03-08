@@ -2,6 +2,27 @@
 
 A complete development environment for WordPress with a Next.js frontend that communicates with WordPress via its REST API. Supports both local development and production deployment.
 
+## EMERGENCY: Docker Socket/Container Reset Commands
+
+If Docker containers become stuck and cannot be stopped/removed (permission issues with docker.sock):
+
+```bash
+# 1. Stop Docker service
+sudo systemctl stop docker
+
+# 2. Remove the Docker socket file
+sudo rm -f /var/run/docker.sock
+
+# 3. Reset Docker completely (WARNING: REMOVES ALL CONTAINERS/IMAGES/VOLUMES)
+sudo rm -rf /var/lib/docker
+
+# 4. Restart Docker service
+sudo systemctl start docker
+
+# 5. Fix socket permissions
+sudo chmod 666 /var/run/docker.sock
+```
+
 ## Quick Start
 
 1. Setup environment:
