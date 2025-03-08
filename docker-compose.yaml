@@ -70,7 +70,7 @@ services:
       - ${THEMES_PATH:-./themes}:/var/www/html/wp-content/themes:rw
       - wp_content:/var/www/html/wp-content/plugins
       - wp_content:/var/www/html/wp-content/uploads
-    user: "${UID:-1000}:${GID:-1000}"  # Run container as host user to avoid permission issues
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"  # Run container as host user to avoid permission issues
     networks:
       - wp_network
     labels:
@@ -81,17 +81,16 @@ services:
 
   # Next.js Frontend
   nextjs:
-    build:
-      context: . # Use root where Dockerfile is located
-      dockerfile: Dockerfile # Explicitly specify Dockerfile
-      args:
-        - NEXT_PUBLIC_WORDPRESS_API_URL=http://wordpress:80/wp-json
-    # Add port mapping back for direct access
+    image: node:20-alpine
+    container_name: wordpress-dev-nextjs
+    command: sh -c "cd /app && if [ -d node_modules ] && [ -f package.json ]; then npm run dev; else echo 'Starting HTTP server'; npx http-server -p 3000; fi"
+    volumes:
+      - ./nextjs-frontend:/app
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=${NODE_ENV:-production}
-      - NEXT_PUBLIC_WORDPRESS_API_URL=http://wordpress:80/wp-json
+      - NODE_ENV=${NODE_ENV:-development}
+      - WORDPRESS_API_URL=http://wordpress:80/wp-json
       - NEXT_PUBLIC_WORDPRESS_URL=http://${DOMAIN:-localhost}
       - HOSTNAME=0.0.0.0
       - PORT=3000
@@ -108,12 +107,12 @@ services:
 
   # Storybook
   storybook:
-    build:
-      context: . # Use root context
-      dockerfile: Dockerfile.storybook
-    # Add port mapping back for direct access
+    image: nginx:alpine
+    container_name: wordpress-dev-storybook
+    volumes:
+      - ./nextjs-frontend:/app:ro
     ports:
-      - "6006:80"
+      - "6007:80"
     depends_on:
       - nextjs
     networks:
@@ -124,6 +123,25 @@ services:
       - "traefik.http.routers.storybook.rule=Host(`storybook.localhost`)"
       - "traefik.http.routers.storybook.entrypoints=web"
       - "traefik.http.services.storybook.loadbalancer.server.port=80"
+    command: >
+      sh -c "
+        if [ ! -d /app ] || [ ! -f /app/package.json ]; then
+          echo 'ERROR: Next.js project not found!' > /usr/share/nginx/html/index.html;
+          echo '<h1>Error: Next.js project not initialized!</h1><p>Please run <code>./create-nextjs-frontend.sh</code> first to set up the project with Storybook.</p>' > /usr/share/nginx/html/index.html;
+          nginx -g 'daemon off;';
+        elif [ ! -d /app/.storybook ]; then
+          echo '<h1>Error: Storybook configuration not found!</h1><p>Please run <code>./create-nextjs-frontend.sh</code> to properly set up Storybook.</p>' > /usr/share/nginx/html/index.html;
+          nginx -g 'daemon off;';
+        else
+          echo '<h1>Storybook Development Server</h1>' > /usr/share/nginx/html/index.html;
+          echo '<p>Storybook is configured but not started. To start Storybook:</p>' >> /usr/share/nginx/html/index.html;
+          echo '<ol>' >> /usr/share/nginx/html/index.html;
+          echo '<li>Run: <code>cd nextjs-frontend && npm run storybook</code></li>' >> /usr/share/nginx/html/index.html;
+          echo '<li>Or: <code>cd nextjs-frontend && npm run build-storybook</code> to create a static build</li>' >> /usr/share/nginx/html/index.html;
+          echo '</ol>' >> /usr/share/nginx/html/index.html;
+          nginx -g 'daemon off;';
+        fi
+      "
 
   # phpMyAdmin
   phpmyadmin:

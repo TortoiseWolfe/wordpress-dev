@@ -8,7 +8,8 @@ COPY nextjs-frontend/package.json nextjs-frontend/package-lock.json* ./
 # Set correct permissions for node_modules
 RUN mkdir -p /app/node_modules && chown -R node:node /app
 USER node
-RUN npm ci
+# Use npm install instead of npm ci since package-lock.json might not exist
+RUN npm install
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
